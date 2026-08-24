@@ -9,6 +9,10 @@ description = "Minimal filesystem utilities CLI library."
 readme = "README.md"
 authors = [{ name="Your Name", email="you@example.com" }]
 requires-python = ">=3.8"
+dependencies = ["click"]
+
+[project.optional-dependencies]
+dev = ["pytest"]
 
 [project.urls]
 Homepage = "https://github.com/imattau/polypack-devteam-sandbox"
@@ -17,4 +21,4 @@ Homepage = "https://github.com/imattau/polypack-devteam-sandbox"
 where = ["src"]
 
 [project.scripts]
-fsutil-cli = "fsutil.cli:main"
+fsutil-cli = "fsutil.cli:cli"

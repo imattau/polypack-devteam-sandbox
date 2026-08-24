@@ -1,35 +1,46 @@
 # src/fsutil/cli.py
-"""Minimal filesystem utility CLI skeleton.
+"""fsutil command line interface.
 
-This module provides a Click group named `cli` with two placeholder subcommands:
-- `copy`: echoes the source and destination paths.
-- `delete`: echoes the path to be deleted.
-
-The commands are intentionally simple so that the test suite can invoke them without performing real file operations.
+This module provides a Click group named `cli` with subcommands for basic filesystem
+operations: `list`, `copy`, and `delete`.
 """
 
+import os
+import shutil
+
 import click
+
 
 @click.group()
 def cli():
     """Root command group for the filesystem utility."""
     pass
 
+
+@cli.command(name="list")
+@click.argument("path", type=click.Path(exists=True, file_okay=False))
+def list_cmd(path):
+    """List the names of entries in PATH, one per line."""
+    for name in sorted(os.listdir(path)):
+        click.echo(name)
+
+
 @cli.command(name="copy")
-@click.argument("src", type=click.Path())
+@click.argument("src", type=click.Path(exists=True))
 @click.argument("dst", type=click.Path())
 def copy(src, dst):
-    """Placeholder copy command.
+    """Copy SRC to DST."""
+    try:
+        shutil.copy2(src, dst)
+    except OSError as exc:
+        raise click.ClickException(str(exc))
 
-    In a full implementation this would copy ``src`` to ``dst``.  For now it simply prints the intended action.
-    """
-    click.echo(f"Copying {src} to {dst}")
 
 @cli.command(name="delete")
-@click.argument("path", type=click.Path())
+@click.argument("path", type=click.Path(exists=True))
 def delete(path):
-    """Placeholder delete command.
-
-    In a full implementation this would delete ``path``.  For now it simply prints the intended action.
-    """
-    click.echo(f"Deleting {path}")
+    """Delete PATH (a file)."""
+    try:
+        os.remove(path)
+    except OSError as exc:
+        raise click.ClickException(str(exc))
