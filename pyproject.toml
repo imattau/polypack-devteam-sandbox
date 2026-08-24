@@ -1,0 +1,24 @@
+[build-system]
+requires = ["setuptools>=42", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "fsutil"
+version = "0.1.0"
+description = "Minimal filesystem utilities CLI library."
+readme = "README.md"
+authors = [{ name="Your Name", email="you@example.com" }]
+requires-python = ">=3.8"
+dependencies = ["click"]
+
+[project.optional-dependencies]
+dev = ["pytest"]
+
+[project.urls]
+Homepage = "https://github.com/imattau/polypack-devteam-sandbox"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[project.scripts]
+fsutil-cli = "fsutil.cli:cli"
