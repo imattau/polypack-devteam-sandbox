@@ -1,35 +1,71 @@
+# src/fsutil/copy.py
 """
-File system utility: copy command
+Copy subcommand implementation.
 
-This module implements a simple file copy operation that can be invoked from the
-`fsutil` click group. The implementation is intentionally minimal and relies on
-Python's standard library (`shutil`) for robust handling of metadata.
+This module provides a `copy` command that copies a file from ``src`` to ``dest``.
+It validates input paths, supports an optional ``--force`` flag to overwrite an
+existing destination, and raises informative :class:`click.ClickException`
+instances on error conditions. The command is registered under the root Click
+group defined in :mod:`fsutil.cli`.
 """
 
 import shutil
 from pathlib import Path
+
 import click
 
+# Import the root CLI group (assumes a package layout where fsutil.cli exists)
+try:
+    from .cli import cli  # type: ignore
+except Exception as exc:  # pragma: no cover - defensive import for CI environments
+    raise RuntimeError("Failed to import cli group: {}".format(exc))
+
+
 @click.command(name="copy")
-@click.argument("src", type=click.Path(exists=True, dir_okay=False))
-@click.argument("dst", type=click.Path(file_okay=False))
-def copy(src: str, dst: str) -> None:
-    """Copy a file from *src* to *dst*.
+@click.argument(
+    "src",
+    type=click.Path(exists=True, file_okay=True, dir_okay=False),
+)
+@click.argument(
+    "dest",
+    type=click.Path(file_okay=True, dir_okay=False),
+)
+@click.option("--force", is_flag=True, help="Overwrite destination if it exists.")
+def copy(src: str, dest: str, force: bool = False) -> None:
+    """Copy a file from ``src`` to ``dest``.
 
     Parameters
     ----------
     src : str
-        Path to the source file. Must exist and be a file.
-    dst : str
-        Destination directory or filename. If a directory is provided, the
-        basename of ``src`` will be used.
+        Path to the source file. Must exist and be a regular file.
+    dest : str
+        Destination path for the copied file.
+    force : bool, optional
+        If true, overwrite ``dest`` when it already exists.
+
+    Raises
+    ------
+    click.ClickException
+        If validation fails or the copy operation raises an exception.
     """
     src_path = Path(src)
-    dst_path = Path(dst)
+    dest_path = Path(dest)
 
-    # Resolve destination: if it's a directory, append source name
-    if dst_path.is_dir() or not dst_path.exists():
-        dst_path = dst_path / src_path.name
+    # Validate source file
+    if not src_path.is_file():
+        raise click.ClickException(f"Source '{src}' does not exist or is not a regular file.")
 
-    shutil.copy2(src_path, dst_path)
-    click.echo(f"Copied {src_path} → {dst_path}")
+    # Handle destination existence
+    if dest_path.exists() and not force:
+        raise click.ClickException(
+            f"Destination '{dest}' already exists. Use --force to overwrite."
+        )
+
+    try:
+        shutil.copy2(src, dest)
+    except Exception as e:  # pragma: no cover - generic error handling
+        raise click.ClickException(f"Failed to copy file: {e}")
+
+
+# Register the command with the root CLI group.
+cli.add_command(copy)
