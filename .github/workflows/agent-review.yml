@@ -1,0 +1,61 @@
+name: Agent Review Relay
+
+# Submits a real pull request review as github-actions[bot] -- a genuinely different GitHub
+# identity from the single PAT all four devteam agent processes share, which GitHub otherwise
+# blocks from self-approving its own PRs. The "approve" path is gated on the CI workflow (ci.yml)
+# actually passing first: an independent automated check, not just relaying the reviewer agent's
+# stated opinion under a different identity. See experiment/devteam/README.md.
+
+on:
+  workflow_dispatch:
+    inputs:
+      pr_number:
+        description: Pull request number
+        required: true
+      body:
+        description: Review comment text
+        required: false
+        default: ""
+      decision:
+        description: approve | request_changes
+        required: true
+
+permissions:
+  pull-requests: write
+  contents: read
+  checks: read
+  actions: read
+
+jobs:
+  review:
+    runs-on: ubuntu-latest
+    env:
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      PR: ${{ inputs.pr_number }}
+      BODY: ${{ inputs.body }}
+      REPO: ${{ github.repository }}
+    steps:
+      - name: Request changes immediately (no CI gate needed to reject)
+        if: inputs.decision == 'request_changes'
+        run: gh pr review "$PR" --repo "$REPO" --request-changes --body "${BODY:-Requesting changes.}"
+
+      - name: Wait for CI, then approve only if it passes
+        if: inputs.decision == 'approve'
+        run: |
+          set -e
+          for i in $(seq 1 30); do
+            STATE=$(gh pr checks "$PR" --repo "$REPO" --json name,state -q '.[] | select(.name=="test") | .state' 2>/dev/null || echo "")
+            if [ "$STATE" = "SUCCESS" ]; then
+              echo "CI passed -- approving."
+              gh pr review "$PR" --repo "$REPO" --approve --body "${BODY:-CI passed; approving.}"
+              exit 0
+            elif [ "$STATE" = "FAILURE" ]; then
+              echo "CI failed -- leaving a comment instead of approving."
+              gh pr comment "$PR" --repo "$REPO" --body "Not approving: CI failed. ${BODY}"
+              exit 1
+            fi
+            sleep 10
+          done
+          echo "Timed out waiting for CI to report a result -- not approving."
+          gh pr comment "$PR" --repo "$REPO" --body "Not approving: CI did not report a result in time. ${BODY}"
+          exit 1

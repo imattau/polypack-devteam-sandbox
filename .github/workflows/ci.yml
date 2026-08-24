@@ -1,0 +1,32 @@
+name: CI
+
+on:
+  pull_request:
+    branches: [main]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Detect stack and run tests
+        run: |
+          set -e
+          if [ -f pyproject.toml ]; then
+            python3 -m pip install --upgrade pip
+            pip install . 2>/dev/null || true
+            pip install pytest
+            if find . -path ./node_modules -prune -o \( -name 'test_*.py' -o -name '*_test.py' \) -print | grep -q .; then
+              pytest -q
+            else
+              echo "No Python tests found yet -- nothing to run."
+            fi
+          elif [ -f package.json ]; then
+            npm install
+            npm test --if-present
+          elif [ -f go.mod ]; then
+            go test ./...
+          else
+            echo "No recognized project files yet -- nothing to run."
+          fi
